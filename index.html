@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Калибровка зрачка</title>
+    <script src="webgazer.js"></script>
+</head>
+<body>
+<!--Канва для отображения точек-эквивалентов зрачков-->
+<canvas id="plotting_canvas" width="500" height="500" style="cursor:crosshair;"></canvas>
+<!--Калибрационные точки-->
+<div class="calibrationDiv">
+    <input type="button" class="Calibration" id="Pt1"></input>
+    <input type="button" class="Calibration" id="Pt2"></input>
+    <input type="button" class="Calibration" id="Pt3"></input>
+    <input type="button" class="Calibration" id="Pt4"></input>
+    <input type="button" class="Calibration" id="Pt5"></input>
+    <input type="button" class="Calibration" id="Pt6"></input>
+    <input type="button" class="Calibration" id="Pt7"></input>
+    <input type="button" class="Calibration" id="Pt8"></input>
+    <input type="button" class="Calibration" id="Pt9"></input>
+</div>
+
+<script>
+    // Отработать изменение размеров окна
+    window.addEventListener('resize', () => {
+        let canvas = document.getElementById('plotting_canvas');
+        let context = canvas.getContext('2d');
+        context.clearRect(0, 0, canvas.width, canvas.height);
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }, false);
+
+    window.onload = async function () {
+        //start the webgazer tracker
+        await webgazer.setRegression('ridge') /* currently must set regression and tracker */
+            //.setTracker('clmtrackr')
+            .setGazeListener(function (data, clock) {
+                //   console.log(data); /* data is an object containing an x and y key which are the x and y prediction coordinates (no bounds limiting) */
+                //   console.log(clock); /* elapsed time in milliseconds since webgazer.begin() was called */
+            })
+            .saveDataAcrossSessions(true)
+            .begin();
+
+        // Set up the webgazer video feedback.
+        webgazer.showVideoPreview(true) /* shows all video previews */
+            .showPredictionPoints(true) /* shows a square every 100 milliseconds where current prediction is */
+            .applyKalmanFilter(false); /* Kalman Filter off */
+
+        //Set up the main canvas. The main canvas is used to calibrate the webgazer.
+        var canvas = document.getElementById("plotting_canvas");
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        canvas.style.position = 'fixed';
+    };
+
+    // Set to true if you want to save the data even if you reload the page.
+    window.saveDataAcrossSessions = true;
+
+    window.onbeforeunload = function () {
+        webgazer.end();
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        // Restart the calibration process by clearing the local storage and reseting the calibration point
+        webgazer.clearData();
+        ClearCalibration();
+        PopUpInstruction();
+    }, false);
+
+</script>
+</body>
+</html>
