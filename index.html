@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <title>Калибровка зрачка</title>
     <script src="webgazer.js"></script>
+    <script src="precision_calculation.js"></script>
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
 <!--Канва для отображения точек-эквивалентов зрачков-->
@@ -21,7 +23,93 @@
     <input type="button" class="Calibration" id="Pt9"></input>
 </div>
 
+<script src="precision_store_points.js"></script>
+<script src="precision_calculation.js"></script>
 <script>
+    let PointCalibrate = 0;
+    let CalibrationPoints = {};
+
+    function ClearCanvas() {
+        document.querySelectorAll('.Calibration').forEach((dot) => {
+            dot.style.display = 'none';
+        });
+        let canvas = document.getElementById("plotting_canvas");
+        canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function ClearCalibration() {
+        document.querySelectorAll('.Calibration').forEach((dot) => {
+            dot.style.backgroundColor = 'red';
+            dot.style.opacity = '0.2';
+            dot.disabled = false;
+        });
+        CalibrationPoints = {};
+        PointCalibrate = 0;
+    }
+
+    function ShowCalibrationPoint() {
+        document.querySelectorAll('.Calibration').forEach((dot) => {
+            if (dot.id === "Pt5") dot.style.display = 'none';
+            else dot.style.display = 'block';
+        });
+    }
+
+    // sleep function because javascript doesn't have one, sourced from http://stackoverflow.com/questions/951021/what-is-the-javascript-version-of-sleep
+    function sleep(time) {
+        return new Promise((resolve) => setTimeout(resolve, time));
+    }
+</script>
+<script>
+    document.querySelectorAll('.Calibration').forEach((dot) => {
+        dot.addEventListener('click', (event) => {
+            if (!CalibrationPoints[event.target.id]) { // initialises if not done
+                CalibrationPoints[event.target.id] = 0;
+            }
+            CalibrationPoints[event.target.id]++; // increments values
+
+            if (CalibrationPoints[event.target.id] === 5) { //only turn to yellow after 5 clicks
+                event.target.style.backgroundColor = 'yellow';
+                event.target.disabled = true;   //disables the button
+                PointCalibrate++;
+            } else if (CalibrationPoints[event.target.id] < 5) {
+                //Gradually increase the opacity of calibration points when click to give some indication to user.
+                let opacity = 0.2 * CalibrationPoints[event.target.id] + 0.2;
+                event.target.style.opacity = opacity.toString();
+            }
+
+            //Show the middle calibration point after all other points have been clicked.
+            if (PointCalibrate === 8) {
+                document.getElementById('Pt5').style.display = 'block';
+            }
+
+            if (PointCalibrate >= 9) { // last point is calibrated
+                //using jquery to grab every element in Calibration class and hide them except the middle point.
+                document.querySelectorAll('.Calibration').forEach((dot) => {
+                    if (dot.id === "Pt5") dot.style.display = 'block';
+                    else dot.style.display = 'none';
+                });
+
+                // clears the canvas
+                let canvas = document.getElementById("plotting_canvas");
+                canvas.getContext('2d').clearRect(0, 0, canvas.width, canvas.height);
+
+                // notification for the measurement process
+                alert('Пожалуйста, не двигайте мышью в течение следующих 5 минут. Это позволит нам вычислить точность калибровки зрения');
+
+                // makes the variables true for 5 seconds & plots the points
+                store_points_variable(); // start storing the prediction points
+
+                sleep(5000).then(() => {
+                    stop_storing_points_variable(); // stop storing the prediction points
+                    let past50 = webgazer.getStoredPoints(); // retrieve the stored points
+                    let precision_measurement = calculatePrecision(past50);
+                    alert("<a>Точность калибровки | " + precision_measurement + "%</a>");
+                    ClearCanvas();
+                });
+            }
+        }, false);
+    });
+
     // Отработать изменение размеров окна
     window.addEventListener('resize', () => {
         let canvas = document.getElementById('plotting_canvas');
@@ -36,8 +124,8 @@
         await webgazer.setRegression('ridge') /* currently must set regression and tracker */
             //.setTracker('clmtrackr')
             .setGazeListener(function (data, clock) {
-                //   console.log(data); /* data is an object containing an x and y key which are the x and y prediction coordinates (no bounds limiting) */
-                //   console.log(clock); /* elapsed time in milliseconds since webgazer.begin() was called */
+                // console.log(data); /* data is an object containing an x and y key which are the x and y prediction coordinates (no bounds limiting) */
+                // console.log(clock); /* elapsed time in milliseconds since webgazer.begin() was called */
             })
             .saveDataAcrossSessions(true)
             .begin();
@@ -45,7 +133,7 @@
         // Set up the webgazer video feedback.
         webgazer.showVideoPreview(true) /* shows all video previews */
             .showPredictionPoints(true) /* shows a square every 100 milliseconds where current prediction is */
-            .applyKalmanFilter(false); /* Kalman Filter off */
+            .applyKalmanFilter(true); /* Kalman Filter off */
 
         //Set up the main canvas. The main canvas is used to calibrate the webgazer.
         var canvas = document.getElementById("plotting_canvas");
@@ -65,7 +153,9 @@
         // Restart the calibration process by clearing the local storage and reseting the calibration point
         webgazer.clearData();
         ClearCalibration();
-        PopUpInstruction();
+        ClearCanvas();
+        alert('Для калибровки движения зрачков нажмите мышью каждую из 9 точек на экране. Нужно сделать 5 нажатий до изменения цвета точки на желтый');
+        ShowCalibrationPoint();
     }, false);
 
 </script>
